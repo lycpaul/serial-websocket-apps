@@ -37,11 +37,14 @@ public class MainActivity extends AppCompatActivity {
     private Button btncon;
     private ScrollView scroll;
 
+    private String[] read_buff;
+    private String cat_string_temp;
+
     private String cat_string(String[] a) {
-        String temp = "";
+        cat_string_temp = "";
         for (int i = 0; i < a.length; i++)
-            temp = temp + a[i] + "\n";
-        return temp;
+            cat_string_temp = cat_string_temp + a[i] + "\n";
+        return cat_string_temp;
     }
 
     @Override
@@ -90,10 +93,10 @@ public class MainActivity extends AppCompatActivity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    String[] temp = msg.split(", ");
-                                    if (temp[0].equals("VALUE")) {
-                                        System.arraycopy(temp, 1, value_L_list, 0, 8);
-                                        System.arraycopy(temp, 9, value_R_list, 0, 8);
+                                    read_buff = msg.split(", ");
+                                    if (read_buff[0].equals("VALUE")) {
+                                        System.arraycopy(read_buff, 1, value_L_list, 0, 8);
+                                        System.arraycopy(read_buff, 9, value_R_list, 0, 8);
                                         value_L.setText(cat_string(value_L_list));
                                         value_R.setText(cat_string(value_R_list));
                                     } else {
