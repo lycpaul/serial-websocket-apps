@@ -1,19 +1,21 @@
 package com.example.yuchung.robocon_apps;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
+import android.support.v7.app.AppCompatActivity;
+import android.view.InputDevice;
+import android.view.InputEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import java.net.URISyntaxException;
-import java.net.URI;
-
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.drafts.Draft_17;
 import org.java_websocket.handshake.ServerHandshake;
+
+import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * @author Paul
@@ -39,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String[] read_buff;
     private String cat_string_temp;
+    private String write_buff = "";
 
     private String cat_string(String[] a) {
         cat_string_temp = "";
@@ -47,17 +50,19 @@ public class MainActivity extends AppCompatActivity {
         return cat_string_temp;
     }
 
+    private byte[] direction = {0, 0, 0, 0};
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        key_L = (TextView)findViewById(R.id.key_L);
-        key_R = (TextView)findViewById(R.id.key_R);
-        value_L = (TextView)findViewById(R.id.value_L);
-        value_R = (TextView)findViewById(R.id.value_R);
-        debug = (TextView)findViewById(R.id.debug);
-        btncon = (Button)findViewById(R.id.btncon);
-        scroll = (ScrollView)findViewById(R.id.scrollView);
+        key_L = (TextView) findViewById(R.id.key_L);
+        key_R = (TextView) findViewById(R.id.key_R);
+        value_L = (TextView) findViewById(R.id.value_L);
+        value_R = (TextView) findViewById(R.id.value_R);
+        debug = (TextView) findViewById(R.id.debug);
+        btncon = (Button) findViewById(R.id.btncon);
+        scroll = (ScrollView) findViewById(R.id.scrollView);
 
         key_L.setText(cat_string(key_L_list));
         key_R.setText(cat_string(key_R_list));
@@ -103,6 +108,16 @@ public class MainActivity extends AppCompatActivity {
                                         debug.append("Get msg: " + msg + "\n");
                                         scroll.fullScroll(View.FOCUS_DOWN);
                                     }
+                                    write_buff = Byte.toString(direction[0]) + "," +
+                                            Byte.toString(direction[1]) + "," +
+                                            Byte.toString(direction[2]) + "," +
+                                            Byte.toString(direction[3]);
+                                    try {
+                                        client.send(write_buff);
+                                    } catch (Exception ex) {
+                                        debug.append("Exception in sending msg" + "\n");
+                                        scroll.fullScroll(View.FOCUS_DOWN);
+                                    }
                                 }
                             });
                         }
@@ -112,7 +127,8 @@ public class MainActivity extends AppCompatActivity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    debug.append("Disconnected: " + getURI() + " code: " + code + " reason: " + reason + "\n");
+                                    debug.append("Disconnected: " + getURI() + " code: " + code +
+                                            " reason: " + reason + "\n");
                                     scroll.fullScroll(View.FOCUS_DOWN);
                                     client.close();
                                     client = null;
@@ -146,6 +162,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+
     }
 
     @Override
@@ -157,4 +175,44 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public boolean onGenericMotionEvent(MotionEvent event) {
+        if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) ==
+                InputDevice.SOURCE_JOYSTICK) {
+                InputDevice mInputDevice = event.getDevice();
+
+                direction[0] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                        MotionEvent.AXIS_X, -1));
+
+                direction[1] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                        MotionEvent.AXIS_Y, -1));
+
+                direction[2] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                        MotionEvent.AXIS_Z, -1));
+
+                direction[3] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                        MotionEvent.AXIS_RZ, -1));
+            return true;
+        }
+        return super.onGenericMotionEvent(event);
+    }
+
+    private float getCenteredAxis(MotionEvent event,
+                                  InputDevice device, int axis, int historyPos) {
+        final InputDevice.MotionRange range =
+                device.getMotionRange(axis, event.getSource());
+        // debouncing
+        if (range != null) {
+            final float flat = range.getFlat();
+            final float value =
+                    historyPos < 0 ? event.getAxisValue(axis) :
+                            event.getHistoricalAxisValue(axis, historyPos);
+            // Ignore axis values that are within the 'flat' region of the
+            // joystick axis center.
+            if (Math.abs(value) > flat) {
+                return value;
+            }
+        }
+        return 0;
+    }
 }
