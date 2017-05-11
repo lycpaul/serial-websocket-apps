@@ -5,6 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.MotionEvent;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ScrollView;
@@ -50,7 +51,31 @@ public class MainActivity extends AppCompatActivity {
         return cat_string_temp;
     }
 
-    private byte[] direction = {0, 0, 0, 0};
+    /*typedef struct __attribute__ ((packed)) {
+            uint8_t hat_left_x;
+            uint8_t hat_left_y;
+            uint8_t hat_right_x;
+            uint8_t hat_right_y;
+
+            uint8_t dpad_code :4;
+            uint8_t square :1;
+            uint8_t cross :1;
+            uint8_t circle :1;
+            uint8_t triangle :1;
+
+            uint8_t l1 :1;
+            uint8_t r1 :1;
+            uint8_t l2 :1;
+            uint8_t r2 :1;
+            uint8_t l3 :1;
+            uint8_t r3 :1;
+            uint8_t ps :1;
+            uint8_t tpad_click :1;
+
+            uint8_t l2_trigger;
+            uint8_t r2_trigger;
+        } Rx_data;*/
+    private byte[] ps4_data = {0,0,0,0,0,0,0,0};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     debug.append("Trying to connect to server...\n");
                     scroll.fullScroll(View.FOCUS_DOWN);
-                    client = new WebSocketClient(new URI("ws://192.168.1.1:8887/"), new Draft_17()) {
+                    client = new WebSocketClient(new URI("ws://192.168.1.100:8887/"), new Draft_17()) {
                         @Override
                         public void onOpen(final ServerHandshake serverHandshake) {
                             runOnUiThread(new Runnable() {
@@ -108,10 +133,10 @@ public class MainActivity extends AppCompatActivity {
                                         debug.append("Get msg: " + msg + "\n");
                                         scroll.fullScroll(View.FOCUS_DOWN);
                                     }
-                                    write_buff = Byte.toString(direction[0]) + "," +
-                                            Byte.toString(direction[1]) + "," +
-                                            Byte.toString(direction[2]) + "," +
-                                            Byte.toString(direction[3]);
+                                    write_buff = Byte.toString(ps4_data[0]) + "," +
+                                            Byte.toString(ps4_data[1]) + "," +
+                                            Byte.toString(ps4_data[2]) + "," +
+                                            Byte.toString(ps4_data[3]);
                                     try {
                                         client.send(write_buff);
                                     } catch (Exception ex) {
@@ -176,22 +201,54 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public boolean onGenericMotionEvent(MotionEvent event) {
-        if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) ==
-                InputDevice.SOURCE_JOYSTICK) {
-                InputDevice mInputDevice = event.getDevice();
+    public boolean onGenericMotionEvent(final MotionEvent event) {
+        if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
+        && event.getAction() == MotionEvent.ACTION_MOVE) {
+            //for joystick data
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    InputDevice mInputDevice = event.getDevice();
+                    ps4_data[0] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                            MotionEvent.AXIS_X, -1));
 
-                direction[0] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
-                        MotionEvent.AXIS_X, -1));
+                    ps4_data[1] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                            MotionEvent.AXIS_Y, -1));
 
-                direction[1] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
-                        MotionEvent.AXIS_Y, -1));
+                    ps4_data[2] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                            MotionEvent.AXIS_Z, -1));
 
-                direction[2] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
-                        MotionEvent.AXIS_Z, -1));
-
-                direction[3] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
-                        MotionEvent.AXIS_RZ, -1));
+                    ps4_data[3] = (byte)Math.round(Byte.MAX_VALUE*getCenteredAxis(event, mInputDevice,
+                            MotionEvent.AXIS_RZ, -1));
+                    value_L_list[0] = Byte.toString(ps4_data[0]);
+                    value_L_list[1] = Byte.toString(ps4_data[1]);
+                    value_L_list[2] = Byte.toString(ps4_data[2]);
+                    value_L_list[3] = Byte.toString(ps4_data[3]);
+                    value_L.setText(cat_string(value_L_list));
+                }
+            });
+            return true;
+        } else if ((event.getSource() & InputDevice.SOURCE_DPAD) != InputDevice.SOURCE_DPAD) {
+            //for dpad
+            debug.append("get dpad" + "\n");
+            scroll.fullScroll(View.FOCUS_DOWN);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    KeyEvent keyEvent = (KeyEvent) (InputEvent) event;
+                    if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP) {
+                        ps4_data[4] = 0;
+                    } else if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                        ps4_data[4] = 2;
+                    } else if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN) {
+                        ps4_data[4] = 4;
+                    } else if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT) {
+                        ps4_data[4] = 6;
+                    }
+                    value_L_list[4] = Byte.toString(ps4_data[4]);
+                    value_L.setText(cat_string(value_L_list));
+                }
+            });
             return true;
         }
         return super.onGenericMotionEvent(event);
